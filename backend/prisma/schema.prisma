@@ -1,0 +1,153 @@
+// Prisma Schema for LittleFriendGarden
+// Generator & Datasource
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Domain: Auth（账号与身份）
+// ============================================
+
+/// 用户主表
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String?   @unique @db.Citext
+  username     String?   @unique @db.Citext
+  phoneE164    String?   @map("phone_e164")
+  passwordHash String?   @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  settings     Json      @default("{}")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  profile       UserProfile?
+  identities    UserIdentity[]
+  following     UserFollow[]   @relation("UserFollows")
+  followers     UserFollow[]   @relation("UserFollowers")
+  blocking      UserBlock[]    @relation("UserBlocks")
+  blockedBy     UserBlock[]    @relation("UserBlockedBy")
+  notifications Notification[]
+  todos         UserTodo[]
+
+  @@index([email])
+  @@index([username])
+  @@map("users")
+}
+
+/// 用户档案（与认证解耦）
+model UserProfile {
+  userId       String    @id @map("user_id") @db.Uuid
+  displayName  String?   @map("display_name")
+  bio          String?
+  avatarUrl    String?   @map("avatar_url")
+  bannerUrl    String?   @map("banner_url")
+  locationText String?   @map("location_text")
+  birthday     DateTime? @db.Date
+  visibility   String    @default("public") // 'public' | 'friends' | 'private'
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+/// 第三方身份（OAuth / Apple / WeChat 等）
+model UserIdentity {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  provider    String // 'google' | 'apple' | 'wechat'
+  providerUid String   @map("provider_uid")
+  meta        Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUid])
+  @@map("user_identities")
+}
+
+/// 关注关系（单向）
+model UserFollow {
+  followerUserId String   @map("follower_user_id") @db.Uuid
+  followeeUserId String   @map("followee_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  follower User @relation("UserFollows", fields: [followerUserId], references: [id], onDelete: Cascade)
+  followee User @relation("UserFollowers", fields: [followeeUserId], references: [id], onDelete: Cascade)
+
+  @@id([followerUserId, followeeUserId])
+  @@index([followeeUserId])
+  @@map("user_follows")
+}
+
+/// 屏蔽关系（单向）
+model UserBlock {
+  blockerUserId String   @map("blocker_user_id") @db.Uuid
+  blockedUserId String   @map("blocked_user_id") @db.Uuid
+  reason        String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  blocker User @relation("UserBlocks", fields: [blockerUserId], references: [id], onDelete: Cascade)
+  blocked User @relation("UserBlockedBy", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  @@id([blockerUserId, blockedUserId])
+  @@index([blockedUserId])
+  @@map("user_blocks")
+}
+
+/// 通知中心
+model Notification {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  type      String // 'system' | 'follow' | 'like' | 'comment' | 'reminder'
+  payload   Json      @default("{}")
+  isRead    Boolean   @default(false) @map("is_read")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+/// 用户待办
+model UserTodo {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  petId       String?   @map("pet_id") @db.Uuid // 可选：关联宠物
+  title       String
+  description String?
+  priority    String    @default("medium") // 'low' | 'medium' | 'high' | 'urgent'
+  status      String    @default("pending") // 'pending' | 'done' | 'archived'
+  tags        String[]  @default([])
+  scheduledAt DateTime? @map("scheduled_at") @db.Timestamptz(6)
+  dueAt       DateTime? @map("due_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Note: petId foreign key will be added after Pet model is created
+
+  @@index([userId, scheduledAt], map: "idx_user_todos_user_scheduled_alive")
+  @@index([userId, status], map: "idx_user_todos_user_status_alive")
+  @@map("user_todos")
+}

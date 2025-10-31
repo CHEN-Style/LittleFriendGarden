@@ -1,0 +1,124 @@
+###
+# 认证 API 测试集合
+# 使用 REST Client 扩展或 curl 测试
+###
+
+@baseUrl = http://localhost:3000/api
+@accessToken = YOUR_ACCESS_TOKEN_HERE
+
+### 1. 用户注册
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "username": "testuser123",
+  "password": "password123",
+  "profile": {
+    "displayName": "Test User",
+    "bio": "This is a test user account"
+  }
+}
+
+### 2. 用户登录（使用 email）
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "testuser@example.com",
+  "password": "password123"
+}
+
+### 3. 用户登录（使用 username）
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "testuser123",
+  "password": "password123"
+}
+
+### 4. 获取当前用户信息（需要认证）
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+### 5. 更新当前用户信息（需要认证）
+PATCH {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "profile": {
+    "displayName": "Updated User Name",
+    "bio": "Updated bio text",
+    "avatarUrl": "https://example.com/avatar.jpg"
+  }
+}
+
+### 6. 用户登出（需要认证）
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{accessToken}}
+
+### 7. 测试未授权访问（应该返回 401）
+GET {{baseUrl}}/auth/me
+
+### 8. 测试无效 token（应该返回 401）
+GET {{baseUrl}}/auth/me
+Authorization: Bearer invalid_token_here
+
+### 9. 测试重复注册（应该返回 409）
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "username": "testuser123",
+  "password": "password123"
+}
+
+### 10. 测试错误密码（应该返回 401）
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "testuser@example.com",
+  "password": "wrong_password"
+}
+
+### 11. 测试不存在的用户（应该返回 401）
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "nonexistent@example.com",
+  "password": "password123"
+}
+
+### 12. 测试验证错误 - 缺少必填字段（应该返回 400）
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+### 13. 测试验证错误 - 无效邮箱格式（应该返回 400）
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "invalid-email",
+  "username": "user123",
+  "password": "password123"
+}
+
+### 14. 测试验证错误 - 密码太短（应该返回 400）
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "username": "user123",
+  "password": "123"
+}
+
