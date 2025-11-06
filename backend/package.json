@@ -11,7 +11,12 @@
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "db:verify": "node scripts/verify-database.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:feeding": "vitest run tests/feeding.test.js",
+    "test:medical": "vitest run tests/medical.test.js",
+    "test:weight": "vitest run tests/weight.test.js",
+    "test:reminder": "vitest run tests/reminder.test.js"
   },
   "keywords": [
     "pet",
@@ -28,11 +33,14 @@
     "express": "^5.1.0",
     "express-winston": "^4.2.0",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3",
     "uuid": "^10.0.0",
     "winston": "^3.14.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.10",
-    "prisma": "^6.18.0"
+    "prisma": "^6.18.0",
+    "supertest": "^7.1.4",
+    "vitest": "^2.1.9"
   }
 }

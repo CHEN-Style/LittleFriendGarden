@@ -20,14 +20,28 @@ const PORT = process.env.PORT || 3000;
 // 基础中间件
 // ======================
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb', strict: false }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ======================
 // 日志和追踪中间件
 // ======================
 app.use(requestIdMiddleware);  // 请求ID生成
 app.use(performanceLogger);    // 性能监控
+
+// 调试：检查 body parser 是否工作
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.path.includes('/pets')) {
+    console.log('DEBUG app.js middleware:');
+    console.log('  req.method:', req.method);
+    console.log('  req.path:', req.path);
+    console.log('  req.body:', req.body);
+    console.log('  typeof req.body:', typeof req.body);
+    console.log('  Content-Type:', req.get('Content-Type'));
+  }
+  next();
+});
+
 app.use(requestLogger);        // 请求日志
 
 // ======================
@@ -49,8 +63,18 @@ app.get('/ping', (req, res) => {
 // API 路由
 // ======================
 import authRoutes from './src/auth/routes/authRoutes.js';
+import petRoutes from './src/pet/routes/petRoutes.js';
+import petWeightRoutes from './src/pet/routes/petWeightRoutes.js';
+import petFeedingRoutes from './src/pet/routes/petFeedingRoutes.js';
+import petMedicalRoutes from './src/pet/routes/petMedicalRoutes.js';
+import reminderRoutes from './src/pet/routes/reminderRoutes.js';
 
 app.use('/api/auth', authRoutes);
+app.use('/api/pets', petRoutes);
+app.use('/api/weights', petWeightRoutes);
+app.use('/api/feedings', petFeedingRoutes);
+app.use('/api/medicals', petMedicalRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 // ======================
 // 错误处理

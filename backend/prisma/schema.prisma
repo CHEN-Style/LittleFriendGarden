@@ -28,14 +28,19 @@ model User {
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   // Relations
-  profile       UserProfile?
-  identities    UserIdentity[]
-  following     UserFollow[]   @relation("UserFollows")
-  followers     UserFollow[]   @relation("UserFollowers")
-  blocking      UserBlock[]    @relation("UserBlocks")
-  blockedBy     UserBlock[]    @relation("UserBlockedBy")
-  notifications Notification[]
-  todos         UserTodo[]
+  profile        UserProfile?
+  identities     UserIdentity[]
+  following      UserFollow[]   @relation("UserFollows")
+  followers      UserFollow[]   @relation("UserFollowers")
+  blocking       UserBlock[]    @relation("UserBlocks")
+  blockedBy      UserBlock[]    @relation("UserBlockedBy")
+  notifications  Notification[]
+  todos          UserTodo[]
+  primaryPets    Pet[]          @relation("PetPrimaryOwner")
+  petOwnerships  PetOwner[]     @relation("PetOwners")
+  uploadedAssets PetAsset[]     @relation("PetAssetUploader")
+  feedingRecords PetFeeding[]   @relation("PetFeedingRecorder")
+  reminders      Reminder[]
 
   @@index([email])
   @@index([username])
@@ -145,9 +150,242 @@ model UserTodo {
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  // Note: petId foreign key will be added after Pet model is created
+  pet  Pet? @relation(fields: [petId], references: [id], onDelete: SetNull)
 
   @@index([userId, scheduledAt], map: "idx_user_todos_user_scheduled_alive")
   @@index([userId, status], map: "idx_user_todos_user_status_alive")
   @@map("user_todos")
+}
+
+// ============================================
+// Domain: Pet（宠物域）
+// ============================================
+
+/// 宠物主表
+model Pet {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  species        String // 'cat' | 'dog' | 'bird' | 'rabbit' | 'reptile' | 'fish' | 'other'
+  breed          String?
+  sex            String? // 'male' | 'female' | 'unknown'
+  birthDate      DateTime? @map("birth_date") @db.Date
+  color          String?
+  avatarAssetId  String?   @map("avatar_asset_id") @db.Uuid
+  primaryOwnerId String    @map("primary_owner_id") @db.Uuid
+  settings       Json      @default("{}") // 个性化设置（隐私、共享策略等）
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  primaryOwner   User               @relation("PetPrimaryOwner", fields: [primaryOwnerId], references: [id], onDelete: Restrict)
+  owners         PetOwner[]
+  assets         PetAsset[]
+  todos          UserTodo[]
+  avatarAsset    PetAsset?          @relation("PetAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
+  weights        PetWeight[]
+  feedings       PetFeeding[]
+  medicalRecords PetMedicalRecord[]
+  reminders      Reminder[]
+  events         PetEvent[]
+
+  @@index([primaryOwnerId])
+  @@map("pets")
+}
+
+/// 宠物-用户关系（多成员共享）
+model PetOwner {
+  petId     String   @map("pet_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("owner") // 'owner' | 'family' | 'viewer'
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  pet  Pet  @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user User @relation("PetOwners", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([petId, userId])
+  @@index([userId])
+  @@map("pet_owners")
+}
+
+/// 素材池（图片/视频等文件的元数据）
+model PetAsset {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  petId            String?   @map("pet_id") @db.Uuid // 可选：资产归属的宠物
+  uploaderUserId   String?   @map("uploader_user_id") @db.Uuid // 可选：上传者（删除用户后置空）
+  title            String?
+  description      String?
+  storageUrl       String    @map("storage_url") // 实际存储地址（S3/OSS/CDN）
+  storageProvider  String    @default("s3") @map("storage_provider") // 's3' | 'oss' | 'gcs'
+  mimeType         String?   @map("mime_type") // 'image/jpeg', 'video/mp4'
+  byteSize         BigInt?   @map("byte_size")
+  pixelWidth       Int?      @map("pixel_width")
+  pixelHeight      Int?      @map("pixel_height")
+  durationSeconds  Decimal?  @map("duration_seconds") @db.Decimal(10, 3)
+  contentHash      String?   @map("content_hash") // SHA256/MD5
+  tags             String[]  @default([])
+  visibility       String    @default("private") // 'public' | 'shared' | 'private'
+  moderationStatus String    @default("pending") @map("moderation_status") // 'pending' | 'approved' | 'rejected'
+  meta             Json      @default("{}") // 其他可扩展元信息（EXIF、机型、镜头等）
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  pet                      Pet?                   @relation(fields: [petId], references: [id], onDelete: SetNull)
+  uploader                 User?                  @relation("PetAssetUploader", fields: [uploaderUserId], references: [id], onDelete: SetNull)
+  petsUsingAsAvatar        Pet[]                  @relation("PetAvatar")
+  medicalRecordAttachments PetMedicalAttachment[]
+
+  @@index([petId, createdAt(sort: Desc)], map: "idx_pet_assets_pet_alive")
+  @@index([uploaderUserId, createdAt(sort: Desc)], map: "idx_pet_assets_uploader_alive")
+  @@index([contentHash], map: "idx_pet_assets_content_hash")
+  @@index([mimeType], map: "idx_pet_assets_mime")
+  @@map("pet_assets")
+}
+
+// ============================================
+// Domain: Pet Records（宠物记录域）
+// ============================================
+
+/// 体重记录
+model PetWeight {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  petId      String    @map("pet_id") @db.Uuid
+  measuredAt DateTime  @map("measured_at") @db.Timestamptz(6)
+  weightKg   Decimal   @map("weight_kg") @db.Decimal(6, 3) // 支持到克位
+  source     String    @default("manual") // 'manual' | 'scale' | 'vet'
+  note       String?
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  pet    Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
+  events PetEvent[]
+
+  @@unique([petId, measuredAt])
+  @@index([petId, measuredAt(sort: Desc)], map: "idx_pet_weights_pet_time_alive")
+  @@map("pet_weights")
+}
+
+/// 喂养记录
+model PetFeeding {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  petId        String    @map("pet_id") @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid // 记录者（可空）
+  fedAt        DateTime  @map("fed_at") @db.Timestamptz(6)
+  foodName     String?   @map("food_name")
+  brand        String?
+  amountG      Decimal?  @map("amount_g") @db.Decimal(8, 3) // 克
+  moisturePct  Decimal?  @map("moisture_pct") @db.Decimal(5, 2) // 含水率%
+  caloriesKcal Decimal?  @map("calories_kcal") @db.Decimal(10, 3) // 千卡
+  method       String    @default("manual") // 'manual' | 'auto_feeder'
+  note         String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  pet    Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user   User?      @relation("PetFeedingRecorder", fields: [userId], references: [id], onDelete: SetNull)
+  events PetEvent[]
+
+  @@index([petId, fedAt(sort: Desc)], map: "idx_pet_feedings_pet_time_alive")
+  @@index([userId, fedAt(sort: Desc)], map: "idx_pet_feedings_user_time_alive")
+  @@map("pet_feedings")
+}
+
+/// 医疗记录（疫苗/驱虫/体检/手术/用药/过敏）
+model PetMedicalRecord {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  petId        String    @map("pet_id") @db.Uuid
+  kind         String // 'vaccine' | 'deworm' | 'exam' | 'surgery' | 'medication' | 'allergy' | 'other'
+  title        String?
+  details      Json      @default("{}") // 例：{"dose":"1ml","batch":"X123","site":"left leg"}
+  clinic       String?
+  veterinarian String?
+  status       String    @default("done") // 'planned' | 'done' | 'cancelled'
+  dueAt        DateTime? @map("due_at") @db.Timestamptz(6) // 计划日期
+  performedAt  DateTime? @map("performed_at") @db.Timestamptz(6) // 实施日期
+  note         String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  pet         Pet                    @relation(fields: [petId], references: [id], onDelete: Cascade)
+  attachments PetMedicalAttachment[]
+  events      PetEvent[]
+
+  @@index([petId, status, dueAt], map: "idx_pet_medical_due_alive")
+  @@index([petId, performedAt(sort: Desc)], map: "idx_pet_medical_done_alive")
+  @@map("pet_medical_records")
+}
+
+/// 医疗记录附件（关联到素材池）
+model PetMedicalAttachment {
+  recordId  String   @map("record_id") @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  record PetMedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  asset  PetAsset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([recordId, assetId])
+  @@map("pet_medical_attachments")
+}
+
+/// 统一提醒（与账号域对齐）
+model Reminder {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  petId       String?   @map("pet_id") @db.Uuid // 可选：关联宠物
+  title       String
+  description String?
+  priority    String    @default("medium") // 'low' | 'medium' | 'high' | 'urgent'
+  status      String    @default("pending") // 'pending' | 'done' | 'archived'
+  scheduledAt DateTime? @map("scheduled_at") @db.Timestamptz(6) // 计划触发时间
+  dueAt       DateTime? @map("due_at") @db.Timestamptz(6) // 截止时间
+  snoozeUntil DateTime? @map("snooze_until") @db.Timestamptz(6) // 贪睡到
+  repeatRule  String?   @map("repeat_rule") // iCal RRULE，例如 FREQ=MONTHLY;INTERVAL=1
+  timezone    String? // 例如 'Asia/Tokyo'
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet  Pet? @relation(fields: [petId], references: [id], onDelete: SetNull)
+
+  @@index([userId, scheduledAt], map: "idx_reminders_user_time_alive")
+  @@map("reminders")
+}
+
+/// 通用事件时间线（可选，统一承载宠物相关事件）
+model PetEvent {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  petId      String    @map("pet_id") @db.Uuid
+  eventType  String    @map("event_type") // 'weight' | 'feeding' | 'vaccination' | 'deworm' | 'vet_visit' | 'bath' | 'groom' | 'walk' | 'medication' | 'note' | 'other'
+  occurredAt DateTime  @map("occurred_at") @db.Timestamptz(6)
+  // 弱绑定引用：三者恰有其一（或无绑定）
+  weightId   String?   @map("weight_id") @db.Uuid
+  feedingId  String?   @map("feeding_id") @db.Uuid
+  medicalId  String?   @map("medical_id") @db.Uuid
+  payload    Json      @default("{}") // 额外上下文（如地理、设备、症状）
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  pet     Pet               @relation(fields: [petId], references: [id], onDelete: Cascade)
+  weight  PetWeight?        @relation(fields: [weightId], references: [id], onDelete: Cascade)
+  feeding PetFeeding?       @relation(fields: [feedingId], references: [id], onDelete: Cascade)
+  medical PetMedicalRecord? @relation(fields: [medicalId], references: [id], onDelete: Cascade)
+
+  @@index([petId, occurredAt(sort: Desc)], map: "idx_pet_events_pet_time_alive")
+  @@map("pet_events")
 }

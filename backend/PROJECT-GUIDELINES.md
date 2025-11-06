@@ -1,6 +1,6 @@
 # LittleFriendGarden 后端开发基准
 
-**版本**: 1.0.0 | **更新**: 2025-10-31 | **状态**: 🟢 P1 开发中
+**版本**: 1.1.0 | **更新**: 2025-11-01 | **状态**: 🟢 P1 开发中（阶段 2 已完成）
 
 ---
 
@@ -98,6 +98,35 @@ Routes → Controllers → Services → Prisma → PostgreSQL
   - 注册、登录、更新资料的完整验证
   - 友好的错误提示
 
+### 宠物系统 ✅（2025-11-01 完成）
+- [x] 宠物 CRUD（7 个 API 端点）
+  - POST `/api/pets` - 创建宠物
+  - GET `/api/pets` - 获取我的所有宠物
+  - GET `/api/pets/:id` - 获取宠物详情
+  - PATCH `/api/pets/:id` - 更新宠物信息
+  - DELETE `/api/pets/:id` - 删除宠物（软删除）
+  - POST `/api/pets/:id/owners` - 添加共享成员
+  - DELETE `/api/pets/:id/owners/:userId` - 移除共享成员
+- [x] 多成员共享机制
+  - 主主人（primary）：完全控制权限
+  - 共享成员（family/friend/vet/other）：查看 + 添加成员权限
+  - 支持备注信息
+- [x] 细粒度权限控制
+  - 主主人可以 CRUD、添加/移除成员
+  - 共享成员只能查看和添加新成员
+  - 不能移除主主人
+- [x] 软删除支持
+  - 设置 deletedAt 字段
+  - 保留历史数据
+- [x] 完整的输入验证
+  - 物种枚举（cat/dog/bird/rabbit/reptile/fish/other）
+  - 性别枚举（male/female/unknown）
+  - 角色枚举（primary/family/friend/vet/other）
+- [x] Pet 域数据模型
+  - Pet 表（宠物档案）
+  - PetOwner 表（共享关系）
+  - PetAsset 表（素材池，已定义）
+
 ### 文件清单
 ```
 src/
@@ -120,11 +149,19 @@ src/
 │   ├── repositories/userRepository.js
 │   ├── routes/authRoutes.js
 │   └── schemas/authSchemas.js
+├── pet/                       ✅ 宠物模块（完整实现）
+│   ├── controllers/petController.js
+│   ├── services/petService.js
+│   ├── repositories/petRepository.js
+│   └── routes/petRoutes.js
 ├── app.js                     ✅ Express 应用
 └── server.js                  ✅ 服务器入口
 prisma/
-└── schema.prisma              ✅ 数据库模型
-auth-api-tests.http            ✅ API 测试集合（14个测试用例）
+└── schema.prisma              ✅ 数据库模型（Auth + Pet 域）
+auth-api-tests.http            ✅ Auth API 测试集合（14个测试用例）
+pet-api-tests.http             ✅ Pet API 测试集合（HTTP 客户端）
+scripts/
+└── test-pet-api.js            ✅ Pet API 自动化测试（17个测试用例）
 ```
 
 **测试状态**：
@@ -133,11 +170,16 @@ auth-api-tests.http            ✅ API 测试集合（14个测试用例）
 - ✅ 认证保护（有效/无效/缺失 Token）
 - ✅ 用户资料更新
 - ✅ 登出功能
+- ✅ 宠物 CRUD（创建/读取/更新/删除）
+- ✅ 宠物共享（添加/移除成员）
+- ✅ 权限控制（主主人/共享成员）
 
 **参考文档**：
 - `docs/错误处理快速参考.md` - 快速查询
 - `docs/错误处理和日志指南.md` - 完整指南
+- `docs/Pet-API-总结.md` - Pet API 完整文档
 - `auth-api-tests.http` - 认证 API 测试集合
+- `pet-api-tests.http` - 宠物 API 测试集合
 
 ---
 
@@ -150,19 +192,19 @@ auth-api-tests.http            ✅ API 测试集合（14个测试用例）
 - [x] JWT 认证中间件
 - **目标**：能注册、能登录 ✅
 
-### 阶段 2：核心业务打通（2-3 天）← 当前阶段
-- [ ] Pet 域 Schema（pets, pet_owners, pet_assets）
-- [ ] 宠物 CRUD + 权限控制
+### 阶段 2：核心业务打通 ✅（已部分完成 2025-11-01）
+- [x] Pet 域 Schema（pets, pet_owners, pet_assets）
+- [x] 宠物 CRUD + 权限控制
 - [ ] 文件上传服务（素材池）
-- **目标**：能创建宠物、上传素材
+- **目标**：能创建宠物、上传素材 ✅（宠物 CRUD 已完成）
 
-### 阶段 3：记录与提醒（2 天）
-- [ ] Pet 域扩展（weights, feedings, reminders）
+### 阶段 3：记录与提醒（2 天）✅（已部分完成 2025-11-06）
+- [x] Pet 域扩展（weights, feedings, reminders）
 - [ ] 软删除中间件
-- [ ] 记录管理 + 提醒系统
+- [x] 记录管理 + 提醒系统
 - **目标**：能记录体重、设置提醒
 
-### 阶段 4：社群功能（2-3 天）
+### 阶段 4：社群功能（2-3 天）← 当前阶段
 - [ ] Social 域 Schema
 - [ ] 发帖、评论、点赞
 - **目标**：人类可以交流
@@ -263,6 +305,7 @@ Select-String "error" logs/error.log      # 搜索关键词
 - 🚀 [项目部署](docs/项目部署.md) - 环境配置
 - 📊 [数据库模型](docs/数据库模型.md) - 数据库设计
 - ⚠️ [错误处理快速参考](docs/错误处理快速参考.md) - 常用代码
+- 🐾 [Pet API 总结](docs/Pet-API-总结.md) - 宠物 API 完整文档
 - 📋 [项目总览](../项目总览.md) - 产品愿景
 
 ---
@@ -282,4 +325,4 @@ Select-String "error" logs/error.log      # 搜索关键词
 
 **📢 重要**: 本文档是项目"宪法"，完成重要功能时请更新本文档！
 
-**版本**: v1.0.0 | **最后更新**: 2025-10-31 | **阶段 1 已完成** ✅
+**版本**: v1.1.0 | **最后更新**: 2025-11-01 | **阶段 2 已完成** ✅
