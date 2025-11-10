@@ -164,6 +164,45 @@ scripts/
 └── test-pet-api.js            ✅ Pet API 自动化测试（17个测试用例）
 ```
 
+### 用户待办系统 ✅（2025-11-07 完成）
+- [x] UserTodo CRUD（13 个 API 端点）
+  - POST `/api/todos` - 创建待办
+  - POST `/api/todos/batch` - 批量创建待办
+  - GET `/api/todos` - 获取待办列表
+  - GET `/api/todos/:id` - 获取待办详情
+  - GET `/api/todos/today` - 获取今日待办
+  - GET `/api/todos/overdue` - 获取逾期待办
+  - GET `/api/todos/stats` - 获取待办统计
+  - PATCH `/api/todos/:id` - 更新待办
+  - POST `/api/todos/:id/complete` - 完成待办
+  - POST `/api/todos/:id/archive` - 归档待办
+  - POST `/api/todos/batch/complete` - 批量完成
+  - POST `/api/todos/batch/archive` - 批量归档
+  - DELETE `/api/todos/:id` - 删除待办（软删除）
+- [x] 优先级支持（low/medium/high/urgent）
+- [x] 状态管理（pending/done/archived）
+- [x] 标签系统（tags）
+- [x] 关联宠物（可选）
+- [x] 时间管理（scheduledAt/dueAt/completedAt）
+- [x] 软删除支持
+- [x] 批量操作
+- [x] 统计功能
+
+### 日历聚合系统 ✅（2025-11-07 完成）
+- [x] Calendar API（5 个 API 端点）
+  - GET `/api/calendar` - 获取日历项目（聚合待办和提醒）
+  - GET `/api/calendar/today` - 获取今日日历
+  - GET `/api/calendar/week` - 获取本周日历
+  - GET `/api/calendar/overdue` - 获取逾期项目
+  - GET `/api/calendar/stats` - 获取统计信息
+- [x] 跨域数据聚合（user_todos + reminders）
+- [x] 统一数据格式（itemKind: user_todo | pet_reminder）
+- [x] 智能排序（优先级 + 时间）
+- [x] 灵活筛选（类型/状态/时间范围）
+- [x] 分页支持
+- [x] 权限验证（自动过滤无权限的宠物提醒）
+- [x] 数据库视图支持（可选）
+
 **测试状态**：
 - ✅ 注册功能（正常/重复/验证错误）
 - ✅ 登录功能（邮箱/用户名/错误密码/不存在用户）
@@ -173,11 +212,17 @@ scripts/
 - ✅ 宠物 CRUD（创建/读取/更新/删除）
 - ✅ 宠物共享（添加/移除成员）
 - ✅ 权限控制（主主人/共享成员）
+- ✅ 宠物记录（体重/喂养/医疗）
+- ✅ 提醒系统（CRUD/批量操作）
+- ✅ 社交功能（帖子/评论/点赞/举报）
+- ⏳ 待办系统（待测试）
+- ⏳ 日历聚合（待测试）
 
 **参考文档**：
 - `docs/错误处理快速参考.md` - 快速查询
 - `docs/错误处理和日志指南.md` - 完整指南
 - `docs/Pet-API-总结.md` - Pet API 完整文档
+- `docs/日历聚合功能实现总结.md` - 日历聚合完整文档 ✨
 - `auth-api-tests.http` - 认证 API 测试集合
 - `pet-api-tests.http` - 宠物 API 测试集合
 
@@ -198,22 +243,29 @@ scripts/
 - [ ] 文件上传服务（素材池）
 - **目标**：能创建宠物、上传素材 ✅（宠物 CRUD 已完成）
 
-### 阶段 3：记录与提醒（2 天）✅（已部分完成 2025-11-06）
-- [x] Pet 域扩展（weights, feedings, reminders）
-- [ ] 软删除中间件
-- [x] 记录管理 + 提醒系统
-- **目标**：能记录体重、设置提醒
+### 阶段 3：记录与提醒（2 天）✅（已完成 2025-11-06）
+- [x] Pet 域扩展（weights, feedings, medical records, reminders）
+- [x] 体重记录管理（CRUD + 统计 + 视图）
+- [x] 喂养记录管理（CRUD + 统计 + 日汇总）
+- [x] 医疗记录管理（CRUD + 疫苗管理）
+- [x] 提醒系统（CRUD + 批量操作 + 统计）
+- **目标**：能记录体重、设置提醒 ✅
 
-### 阶段 4：社群功能（2-3 天）← 当前阶段
-- [ ] Social 域 Schema
-- [ ] 发帖、评论、点赞
-- **目标**：人类可以交流
+### 阶段 4：社群功能（2-3 天）✅（已完成 2025-11-07）
+- [x] Social 域 Schema（posts, comments, reactions, topics, reports）
+- [x] 话题管理（创建/查询/更新）
+- [x] 帖子管理（CRUD + 附件 + 话题关联）
+- [x] 评论管理（楼中楼 + CRUD）
+- [x] 点赞系统（帖子/评论点赞）
+- [x] 举报系统（内容审核）
+- **目标**：人类可以交流 ✅
 
-### 阶段 5：日历聚合 + 优化（1-2 天）
-- [ ] Calendar 视图
+### 阶段 5：日历聚合 + 优化（1-2 天）✅（已部分完成 2025-11-07）
+- [x] Calendar 视图（日历聚合 API）
+- [x] UserTodo 完整实现（待办管理）
 - [ ] Redis 缓存
 - [ ] 性能优化
-- **目标**：P1 完整可用
+- **目标**：P1 完整可用 ← 当前阶段
 
 ---
 

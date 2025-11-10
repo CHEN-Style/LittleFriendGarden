@@ -28,19 +28,27 @@ model User {
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   // Relations
-  profile        UserProfile?
-  identities     UserIdentity[]
-  following      UserFollow[]   @relation("UserFollows")
-  followers      UserFollow[]   @relation("UserFollowers")
-  blocking       UserBlock[]    @relation("UserBlocks")
-  blockedBy      UserBlock[]    @relation("UserBlockedBy")
-  notifications  Notification[]
-  todos          UserTodo[]
-  primaryPets    Pet[]          @relation("PetPrimaryOwner")
-  petOwnerships  PetOwner[]     @relation("PetOwners")
-  uploadedAssets PetAsset[]     @relation("PetAssetUploader")
-  feedingRecords PetFeeding[]   @relation("PetFeedingRecorder")
-  reminders      Reminder[]
+  profile           UserProfile?
+  identities        UserIdentity[]
+  following         UserFollow[]        @relation("UserFollows")
+  followers         UserFollow[]        @relation("UserFollowers")
+  blocking          UserBlock[]         @relation("UserBlocks")
+  blockedBy         UserBlock[]         @relation("UserBlockedBy")
+  notifications     Notification[]
+  todos             UserTodo[]
+  primaryPets       Pet[]               @relation("PetPrimaryOwner")
+  petOwnerships     PetOwner[]          @relation("PetOwners")
+  uploadedAssets    PetAsset[]          @relation("PetAssetUploader")
+  feedingRecords    PetFeeding[]        @relation("PetFeedingRecorder")
+  reminders         Reminder[]
+  posts             Post[]              @relation("PostAuthor")
+  comments          Comment[]           @relation("CommentAuthor")
+  postReactions     PostReaction[]      @relation("PostReactions")
+  commentReactions  CommentReaction[]   @relation("CommentReactions")
+  postReports       PostReport[]        @relation("PostReports")
+  commentReports    CommentReport[]     @relation("CommentReports")
+  postModerations   PostReport[]        @relation("PostModerations")
+  commentModerations CommentReport[]    @relation("CommentModerations")
 
   @@index([email])
   @@index([username])
@@ -238,6 +246,8 @@ model PetAsset {
   uploader                 User?                  @relation("PetAssetUploader", fields: [uploaderUserId], references: [id], onDelete: SetNull)
   petsUsingAsAvatar        Pet[]                  @relation("PetAvatar")
   medicalRecordAttachments PetMedicalAttachment[]
+  postAttachments          PostAttachment[]
+  commentAttachments       CommentAttachment[]
 
   @@index([petId, createdAt(sort: Desc)], map: "idx_pet_assets_pet_alive")
   @@index([uploaderUserId, createdAt(sort: Desc)], map: "idx_pet_assets_uploader_alive")
@@ -388,4 +398,199 @@ model PetEvent {
 
   @@index([petId, occurredAt(sort: Desc)], map: "idx_pet_events_pet_time_alive")
   @@map("pet_events")
+}
+
+// ============================================
+// Domain: Social（社群域）
+// ============================================
+
+/// 话题字典（官方/社区话题）
+model Topic {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String?   @unique @db.Citext // URL 友好标识
+  name        String    @db.Citext // 展示名
+  description String?
+  isOfficial  Boolean   @default(false) @map("is_official") // 官方话题
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  postTopics PostTopic[]
+
+  @@map("topics")
+}
+
+/// 帖子主表
+model Post {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorUserId  String    @map("author_user_id") @db.Uuid
+  title         String?
+  text          String? // 正文（纯文本或 markdown）
+  topics        String[]  @default([]) // 自由标签（沉淀到 topics 表）
+  visibility    String    @default("public") // 'public' | 'friends' | 'private'
+  allowComments Boolean   @default(true) @map("allow_comments")
+  commentCount  Int       @default(0) @map("comment_count") // 计数反范式
+  likeCount     Int       @default(0) @map("like_count") // 计数反范式
+  meta          Json      @default("{}") // 扩展元信息
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  author      User              @relation("PostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  postTopics  PostTopic[]
+  comments    Comment[]
+  reactions   PostReaction[]
+  reports     PostReport[]
+  attachments PostAttachment[]
+
+  @@index([authorUserId, createdAt(sort: Desc)], map: "idx_posts_author_time_alive")
+  @@index([visibility, createdAt(sort: Desc)], map: "idx_posts_visibility_time")
+  @@map("posts")
+}
+
+/// 帖子-话题多对多关系
+model PostTopic {
+  postId    String   @map("post_id") @db.Uuid
+  topicId   String   @map("topic_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@id([postId, topicId])
+  @@map("post_topics")
+}
+
+/// 评论（支持楼中楼）
+model Comment {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId          String    @map("post_id") @db.Uuid
+  authorUserId    String    @map("author_user_id") @db.Uuid
+  parentCommentId String?   @map("parent_comment_id") @db.Uuid // NULL 为一级评论
+  text            String
+  likeCount       Int       @default(0) @map("like_count") // 计数反范式
+  meta            Json      @default("{}")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  post            Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          User               @relation("CommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  parentComment   Comment?           @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[]          @relation("CommentReplies")
+  reactions       CommentReaction[]
+  reports         CommentReport[]
+  attachments     CommentAttachment[]
+
+  @@index([postId, createdAt], map: "idx_comments_post_time_alive")
+  @@index([parentCommentId, createdAt], map: "idx_comments_parent_time_alive")
+  @@map("comments")
+}
+
+/// 帖子点赞/反应
+model PostReaction {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @default("like") // 'like' | 'heart' | 'haha' 等
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation("PostReactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, type])
+  @@map("post_reactions")
+}
+
+/// 评论点赞/反应
+model CommentReaction {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @default("like")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation("CommentReactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, type])
+  @@map("comment_reactions")
+}
+
+/// 帖子举报
+model PostReport {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId      String    @map("post_id") @db.Uuid
+  reporterId  String    @map("reporter_id") @db.Uuid
+  reasonCode  String?   @map("reason_code") // 'spam' | 'abuse' | 'copyright' | ...
+  reasonText  String?   @map("reason_text")
+  status      String    @default("pending") // 'pending' | 'reviewing' | 'resolved' | 'rejected'
+  resolution  String?
+  moderatorId String?   @map("moderator_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  post      Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter  User  @relation("PostReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  moderator User? @relation("PostModerations", fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  @@map("post_reports")
+}
+
+/// 评论举报
+model CommentReport {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commentId   String    @map("comment_id") @db.Uuid
+  reporterId  String    @map("reporter_id") @db.Uuid
+  reasonCode  String?   @map("reason_code")
+  reasonText  String?   @map("reason_text")
+  status      String    @default("pending")
+  resolution  String?
+  moderatorId String?   @map("moderator_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter  User    @relation("CommentReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  moderator User?   @relation("CommentModerations", fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  @@map("comment_reports")
+}
+
+/// 帖子附件（关联到素材池）
+model PostAttachment {
+  postId    String   @map("post_id") @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  post  Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  asset PetAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([postId, assetId])
+  @@map("post_attachments")
+}
+
+/// 评论附件（关联到素材池）
+model CommentAttachment {
+  commentId String   @map("comment_id") @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  comment Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  asset   PetAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, assetId])
+  @@map("comment_attachments")
 }

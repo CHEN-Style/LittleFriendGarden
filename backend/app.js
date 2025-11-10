@@ -63,18 +63,39 @@ app.get('/ping', (req, res) => {
 // API 路由
 // ======================
 import authRoutes from './src/auth/routes/authRoutes.js';
+import userTodoRoutes from './src/auth/routes/userTodoRoutes.js';
+import calendarRoutes from './src/auth/routes/calendarRoutes.js';
 import petRoutes from './src/pet/routes/petRoutes.js';
 import petWeightRoutes from './src/pet/routes/petWeightRoutes.js';
 import petFeedingRoutes from './src/pet/routes/petFeedingRoutes.js';
 import petMedicalRoutes from './src/pet/routes/petMedicalRoutes.js';
 import reminderRoutes from './src/pet/routes/reminderRoutes.js';
 
+// 社交功能路由
+import topicRoutes from './src/social/routes/topicRoutes.js';
+import postRoutes from './src/social/routes/postRoutes.js';
+import commentRoutes from './src/social/routes/commentRoutes.js';
+import reactionRoutes from './src/social/routes/reactionRoutes.js';
+import reportRoutes from './src/social/routes/reportRoutes.js';
+
+// 认证与账号域
 app.use('/api/auth', authRoutes);
+app.use('/api/todos', userTodoRoutes);
+app.use('/api/calendar', calendarRoutes);
+
+// 宠物域
 app.use('/api/pets', petRoutes);
 app.use('/api/weights', petWeightRoutes);
 app.use('/api/feedings', petFeedingRoutes);
 app.use('/api/medicals', petMedicalRoutes);
 app.use('/api/reminders', reminderRoutes);
+
+// 社交功能
+app.use('/api/topics', topicRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/reactions', reactionRoutes);
+app.use('/api/reports', reportRoutes);
 
 // ======================
 // 错误处理
