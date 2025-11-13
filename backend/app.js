@@ -106,10 +106,13 @@ app.use(errorHandler);     // 全局错误处理
 // ======================
 // 服务器启动
 // ======================
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`Server is running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`Health check available at http://localhost:${PORT}/health`);
+  logger.info(`Health check available at:`);
+  logger.info(`  - http://localhost:${PORT}/health`);
+  logger.info(`  - http://172.20.10.2:${PORT}/health`);
+  logger.info(`  - http://172.28.128.1:${PORT}/health`);
 });
 
 // 优雅关闭处理
