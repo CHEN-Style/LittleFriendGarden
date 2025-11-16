@@ -11,7 +11,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Sidebar from '../components/Sidebar';
+import Sidebar from '../components/home/Sidebar';
 import * as storage from '../utils/storage';
 import { useTheme } from '../contexts/ThemeContext';
 import Constants from 'expo-constants';
@@ -23,6 +23,13 @@ export default function HomeScreen({ navigation, onLogout }) {
   const [userData, setUserData] = useState(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const { isDarkMode, toggleTheme } = useTheme();
+  
+  // 任务折叠状态
+  const [isToDoCollapsed, setIsToDoCollapsed] = useState(false);
+  const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
+  
+  // 任务过滤器状态
+  const [taskFilter, setTaskFilter] = useState('all'); // 'all', 'done', 'todo'
 
   useEffect(() => {
     loadUserData();
@@ -52,22 +59,22 @@ export default function HomeScreen({ navigation, onLogout }) {
       goalsCompleted: 6,
       goalsTotal: 8,
       nextTask: {
-        title: 'Afternoon playtime',
-        time: '2:00 PM',
+        title: '下午玩耍时间',
+        time: '下午 2:00',
         icon: 'footsteps',
       },
     },
   ];
 
   const mockTasks = [
-    { id: '1', title: 'Morning feeding', time: '7:00 AM', completed: true, icon: 'restaurant', priority: 'high' },
-    { id: '2', title: 'Morning walk', time: '8:30 AM', completed: true, icon: 'walk' },
-    { id: '3', title: 'Give vitamins', time: '9:00 AM', completed: true, icon: 'medical', priority: 'medium' },
-    { id: '4', title: 'Refill water bowl', time: '12:00 PM', completed: true, icon: 'water' },
-    { id: '5', title: 'Afternoon playtime', time: '2:00 PM', completed: false, icon: 'tennisball' },
-    { id: '6', title: 'Evening feeding', time: '6:00 PM', completed: false, icon: 'restaurant', priority: 'high' },
-    { id: '7', title: 'Evening walk', time: '7:30 PM', completed: false, icon: 'walk' },
-    { id: '8', title: 'Grooming session', time: '8:00 PM', completed: false, icon: 'cut', priority: 'medium' },
+    { id: '1', title: '早晨喂食', time: '上午 7:00', completed: true, icon: 'restaurant', priority: 'high' },
+    { id: '2', title: '早晨散步', time: '上午 8:30', completed: true, icon: 'walk' },
+    { id: '3', title: '喂维生素', time: '上午 9:00', completed: true, icon: 'medical', priority: 'medium' },
+    { id: '4', title: '换水', time: '下午 12:00', completed: true, icon: 'water' },
+    { id: '5', title: '下午玩耍时间', time: '下午 2:00', completed: false, icon: 'tennisball' },
+    { id: '6', title: '晚餐喂食', time: '下午 6:00', completed: false, icon: 'restaurant', priority: 'high' },
+    { id: '7', title: '晚间散步', time: '晚上 7:30', completed: false, icon: 'walk' },
+    { id: '8', title: '美容护理', time: '晚上 8:00', completed: false, icon: 'cut', priority: 'medium' },
   ];
 
   const completedTasks = mockTasks.filter(t => t.completed);
@@ -105,7 +112,7 @@ export default function HomeScreen({ navigation, onLogout }) {
               />
             </TouchableOpacity>
 
-            <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]}>My Pet</Text>
+            <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]}>我的宠物</Text>
 
             <View style={styles.headerActions}>
               <TouchableOpacity
@@ -170,7 +177,7 @@ export default function HomeScreen({ navigation, onLogout }) {
 
               {/* Daily Goals */}
               <View style={[styles.dailyGoalsCard, isDarkMode && styles.dailyGoalsCardDark]}>
-                <Text style={[styles.dailyGoalsLabel, isDarkMode && styles.dailyGoalsLabelDark]}>Daily Goals</Text>
+                <Text style={[styles.dailyGoalsLabel, isDarkMode && styles.dailyGoalsLabelDark]}>每日目标</Text>
                 <Text style={[styles.dailyGoalsValue, isDarkMode && styles.dailyGoalsValueDark]}>
                   {mockPets[0].goalsCompleted}/{mockPets[0].goalsTotal}
                 </Text>
@@ -192,7 +199,7 @@ export default function HomeScreen({ navigation, onLogout }) {
                   <Ionicons name={mockPets[0].nextTask.icon} size={16} color={isDarkMode ? "#FB923C" : "#FFFFFF"} />
                 </View>
                 <View style={styles.nextTaskDetails}>
-                  <Text style={[styles.nextTaskLabel, isDarkMode && { color: '#9CA3AF' }]}>Next Task</Text>
+                  <Text style={[styles.nextTaskLabel, isDarkMode && { color: '#9CA3AF' }]}>下一个任务</Text>
                   <Text style={[styles.nextTaskTitle, isDarkMode && { color: '#F9FAFB' }]}>{mockPets[0].nextTask.title}</Text>
                   <View style={styles.nextTaskTime}>
                     <Ionicons name="time" size={12} color={isDarkMode ? "#9CA3AF" : "rgba(255, 255, 255, 0.9)"} />
@@ -207,12 +214,12 @@ export default function HomeScreen({ navigation, onLogout }) {
           <View style={styles.quickActions}>
             <TouchableOpacity style={styles.primaryButton} activeOpacity={0.9}>
               <Ionicons name="add" size={14} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>Add Task</Text>
+              <Text style={styles.primaryButtonText}>添加任务</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.8}>
               <Ionicons name="search" size={14} color="#374151" />
-              <Text style={styles.secondaryButtonText}>Health Log</Text>
+              <Text style={styles.secondaryButtonText}>健康日志</Text>
             </TouchableOpacity>
           </View>
 
@@ -221,7 +228,7 @@ export default function HomeScreen({ navigation, onLogout }) {
             <View style={[styles.nextUpCard, isDarkMode && styles.nextUpCardDark]}>
               <View style={styles.nextUpHeader}>
                 <Ionicons name="notifications" size={14} color={isDarkMode ? "#FB923C" : "#EA580C"} />
-                <Text style={[styles.nextUpLabel, isDarkMode && styles.nextUpLabelDark]}>Next Up</Text>
+                <Text style={[styles.nextUpLabel, isDarkMode && styles.nextUpLabelDark]}>即将开始</Text>
               </View>
               <View style={styles.nextUpContent}>
                 <View style={[styles.nextUpIconContainer, isDarkMode && styles.nextUpIconContainerDark]}>
@@ -238,29 +245,67 @@ export default function HomeScreen({ navigation, onLogout }) {
             </View>
           )}
 
+          {/* Divider */}
+          <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
+
           {/* Today's Tasks */}
           <View style={styles.tasksSection}>
             <View style={styles.tasksSectionHeader}>
               <View>
-                <Text style={[styles.tasksSectionTitle, isDarkMode && styles.tasksSectionTitleDark]}>Today's Tasks</Text>
-                <Text style={[styles.tasksSectionDate, isDarkMode && styles.tasksSectionDateDark]}>Monday, November 10, 2025</Text>
+                <Text style={[styles.tasksSectionTitle, isDarkMode && styles.tasksSectionTitleDark]}>今日任务</Text>
+                <Text style={[styles.tasksSectionDate, isDarkMode && styles.tasksSectionDateDark]}>2025年11月10日 星期一</Text>
               </View>
               <View style={styles.tasksFilters}>
-                <TouchableOpacity style={styles.filterButtonActive}>
-                  <Text style={styles.filterTextActive}>All</Text>
+                <TouchableOpacity 
+                  style={taskFilter === 'all' ? styles.filterButtonActive : [styles.filterButton, isDarkMode && styles.filterButtonDark]}
+                  onPress={() => {
+                    setTaskFilter('all');
+                    setIsToDoCollapsed(false);
+                    setIsCompletedCollapsed(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={taskFilter === 'all' ? styles.filterTextActive : [styles.filterText, isDarkMode && styles.filterTextDark]}>全部</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.filterButton, isDarkMode && styles.filterButtonDark]}>
-                  <Text style={[styles.filterText, isDarkMode && styles.filterTextDark]}>Done</Text>
+                <TouchableOpacity 
+                  style={taskFilter === 'done' ? styles.filterButtonActive : [styles.filterButton, isDarkMode && styles.filterButtonDark]}
+                  onPress={() => {
+                    setTaskFilter('done');
+                    setIsToDoCollapsed(true);
+                    setIsCompletedCollapsed(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={taskFilter === 'done' ? styles.filterTextActive : [styles.filterText, isDarkMode && styles.filterTextDark]}>已完成</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.filterButton, isDarkMode && styles.filterButtonDark]}>
-                  <Text style={[styles.filterText, isDarkMode && styles.filterTextDark]}>Todo</Text>
+                <TouchableOpacity 
+                  style={taskFilter === 'todo' ? styles.filterButtonActive : [styles.filterButton, isDarkMode && styles.filterButtonDark]}
+                  onPress={() => {
+                    setTaskFilter('todo');
+                    setIsToDoCollapsed(false);
+                    setIsCompletedCollapsed(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={taskFilter === 'todo' ? styles.filterTextActive : [styles.filterText, isDarkMode && styles.filterTextDark]}>待办</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Incomplete Tasks */}
-            <Text style={[styles.tasksSubtitle, isDarkMode && styles.tasksSubtitleDark]}>To Do ({incompleteTasks.length})</Text>
-            {incompleteTasks.map((task) => (
+            <TouchableOpacity 
+              style={[styles.tasksSectionSubHeader, isDarkMode && styles.tasksSectionSubHeaderDark]}
+              onPress={() => setIsToDoCollapsed(!isToDoCollapsed)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tasksSubtitle, isDarkMode && styles.tasksSubtitleDark]}>待办 ({incompleteTasks.length})</Text>
+              <Ionicons 
+                name={isToDoCollapsed ? "chevron-down" : "chevron-up"} 
+                size={16} 
+                color={isDarkMode ? "#9CA3AF" : "#6B7280"} 
+              />
+            </TouchableOpacity>
+            {!isToDoCollapsed && incompleteTasks.map((task) => (
               <View key={task.id} style={[styles.taskItem, isDarkMode && styles.taskItemDark]}>
                 <TouchableOpacity style={styles.taskCheckbox}>
                   <Ionicons name="ellipse-outline" size={20} color={isDarkMode ? "#4B5563" : "#D1D5DB"} />
@@ -292,8 +337,19 @@ export default function HomeScreen({ navigation, onLogout }) {
             ))}
 
             {/* Completed Tasks */}
-            <Text style={[styles.tasksSubtitle, { marginTop: 16 }, isDarkMode && styles.tasksSubtitleDark]}>Completed ({completedTasks.length})</Text>
-            {completedTasks.map((task) => (
+            <TouchableOpacity 
+              style={[styles.tasksSectionSubHeader, { marginTop: 5 }, isDarkMode && styles.tasksSectionSubHeaderDark]}
+              onPress={() => setIsCompletedCollapsed(!isCompletedCollapsed)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tasksSubtitle, isDarkMode && styles.tasksSubtitleDark]}>已完成 ({completedTasks.length})</Text>
+              <Ionicons 
+                name={isCompletedCollapsed ? "chevron-down" : "chevron-up"} 
+                size={16} 
+                color={isDarkMode ? "#9CA3AF" : "#6B7280"} 
+              />
+            </TouchableOpacity>
+            {!isCompletedCollapsed && completedTasks.map((task) => (
               <View key={task.id} style={[styles.taskItemCompleted, isDarkMode && styles.taskItemCompletedDark]}>
                 <TouchableOpacity style={styles.taskCheckbox}>
                   <Ionicons name="checkmark-circle" size={20} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
@@ -311,14 +367,14 @@ export default function HomeScreen({ navigation, onLogout }) {
 
           {/* Health Overview */}
           <View style={styles.healthSection}>
-            <Text style={[styles.healthTitle, isDarkMode && styles.healthTitleDark]}>Health Overview</Text>
+            <Text style={[styles.healthTitle, isDarkMode && styles.healthTitleDark]}>健康概览</Text>
             <View style={styles.healthCards}>
               {/* Weight Card */}
               <View style={[styles.healthCard, isDarkMode && styles.healthCardDark]}>
                 <View style={[styles.healthIconBg, isDarkMode && styles.healthIconBgDark]}>
                   <Ionicons name="fitness" size={14} color={isDarkMode ? "#FB923C" : "#EA580C"} />
                 </View>
-                <Text style={[styles.healthCardLabel, isDarkMode && styles.healthCardLabelDark]}>Weight</Text>
+                <Text style={[styles.healthCardLabel, isDarkMode && styles.healthCardLabelDark]}>体重</Text>
                 <View style={styles.healthCardValue}>
                   <Text style={[styles.healthCardNumber, isDarkMode && styles.healthCardNumberDark]}>28.5</Text>
                   <Text style={[styles.healthCardUnit, isDarkMode && styles.healthCardUnitDark]}>kg</Text>
@@ -327,7 +383,7 @@ export default function HomeScreen({ navigation, onLogout }) {
                   <Ionicons name="trending-up" size={12} color="#EA580C" />
                   <Text style={styles.healthCardTrendText}>+0.3 kg</Text>
                 </View>
-                <Text style={[styles.healthCardDate, isDarkMode && styles.healthCardDateDark]}>Nov 8</Text>
+                <Text style={[styles.healthCardDate, isDarkMode && styles.healthCardDateDark]}>11月8日</Text>
               </View>
 
               {/* Exercise Card */}
@@ -335,15 +391,15 @@ export default function HomeScreen({ navigation, onLogout }) {
                 <View style={[styles.healthIconBg, isDarkMode && styles.healthIconBgDark]}>
                   <Ionicons name="timer" size={14} color={isDarkMode ? "#FB923C" : "#EA580C"} />
                 </View>
-                <Text style={[styles.healthCardLabel, isDarkMode && styles.healthCardLabelDark]}>Exercise</Text>
+                <Text style={[styles.healthCardLabel, isDarkMode && styles.healthCardLabelDark]}>运动</Text>
                 <View style={styles.healthCardValue}>
                   <Text style={[styles.healthCardNumber, isDarkMode && styles.healthCardNumberDark]}>45</Text>
-                  <Text style={[styles.healthCardUnit, isDarkMode && styles.healthCardUnitDark]}>min</Text>
+                  <Text style={[styles.healthCardUnit, isDarkMode && styles.healthCardUnitDark]}>分钟</Text>
                 </View>
                 <View style={[styles.exerciseProgress, isDarkMode && styles.exerciseProgressDark]}>
                   <View style={styles.exerciseProgressFill} />
                 </View>
-                <Text style={[styles.healthCardDate, isDarkMode && styles.healthCardDateDark]}>Goal: 60 min</Text>
+                <Text style={[styles.healthCardDate, isDarkMode && styles.healthCardDateDark]}>目标: 60分钟</Text>
               </View>
 
               {/* BM Card */}
@@ -351,15 +407,15 @@ export default function HomeScreen({ navigation, onLogout }) {
                 <View style={[styles.healthIconBg, isDarkMode && styles.healthIconBgDark]}>
                   <Ionicons name="pulse" size={14} color={isDarkMode ? "#FB923C" : "#EA580C"} />
                 </View>
-                <Text style={[styles.healthCardLabel, isDarkMode && styles.healthCardLabelDark]}>BM Today</Text>
+                <Text style={[styles.healthCardLabel, isDarkMode && styles.healthCardLabelDark]}>今日排便</Text>
                 <View style={styles.healthCardValue}>
                   <Text style={[styles.healthCardNumber, isDarkMode && styles.healthCardNumberDark]}>2</Text>
-                  <Text style={[styles.healthCardUnit, isDarkMode && styles.healthCardUnitDark]}>times</Text>
+                  <Text style={[styles.healthCardUnit, isDarkMode && styles.healthCardUnitDark]}>次</Text>
                 </View>
                 <View style={styles.healthBadge}>
-                  <Text style={styles.healthBadgeText}>normal</Text>
+                  <Text style={styles.healthBadgeText}>正常</Text>
                 </View>
-                <Text style={[styles.healthCardDate, isDarkMode && styles.healthCardDateDark]}>Last: 10:30 AM</Text>
+                <Text style={[styles.healthCardDate, isDarkMode && styles.healthCardDateDark]}>最近: 上午10:30</Text>
               </View>
             </View>
           </View>
@@ -479,7 +535,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 12,
     paddingBottom: 80,
-    gap: 12,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -491,6 +546,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginTop: 12,
+    marginBottom: 16,
   },
   searchContainerDark: {
     backgroundColor: '#374151',
@@ -511,6 +567,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F97316',
     borderRadius: 8,
     padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -680,6 +737,7 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: 'row',
     gap: 8,
+    marginBottom: 24,
   },
   primaryButton: {
     flex: 1,
@@ -729,6 +787,7 @@ const styles = StyleSheet.create({
     borderColor: '#FED7AA',
     borderRadius: 8,
     padding: 12,
+    marginBottom: 24,
   },
   nextUpCardDark: {
     backgroundColor: 'rgba(249, 115, 22, 0.2)',
@@ -787,14 +846,24 @@ const styles = StyleSheet.create({
   nextUpTimeTextDark: {
     color: '#9CA3AF',
   },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 16,
+  },
+  dividerDark: {
+    backgroundColor: '#374151',
+  },
   tasksSection: {
     gap: 8,
+    marginBottom: 24,
   },
   tasksSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingTop: 4,
   },
   tasksSectionTitle: {
     fontSize: 16,
@@ -808,25 +877,31 @@ const styles = StyleSheet.create({
   },
   tasksFilters: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
   },
   filterButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    minWidth: 60,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
     backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterButtonDark: {
     backgroundColor: '#374151',
   },
   filterButtonActive: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    minWidth: 60,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
     backgroundColor: '#F97316',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
     color: '#6B7280',
   },
@@ -834,15 +909,32 @@ const styles = StyleSheet.create({
     color: '#D1D5DB',
   },
   filterTextActive: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  tasksSectionSubHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tasksSubtitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 8,
+    flex: 1,
   },
   taskItem: {
     flexDirection: 'row',
@@ -955,13 +1047,14 @@ const styles = StyleSheet.create({
     color: '#C2410C',
   },
   healthSection: {
-    marginTop: 4,
+    marginTop: 8,
   },
   healthTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingTop: 4,
   },
   healthCards: {
     flexDirection: 'row',
@@ -1143,6 +1236,10 @@ const styles = StyleSheet.create({
   },
   tasksSectionDateDark: {
     color: '#9CA3AF',
+  },
+  tasksSectionSubHeaderDark: {
+    backgroundColor: '#374151',
+    borderColor: '#4B5563',
   },
   tasksSubtitleDark: {
     color: '#D1D5DB',

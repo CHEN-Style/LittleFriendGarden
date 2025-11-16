@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API Service - 统一的 API 请求封装
  */
 
@@ -8,20 +8,23 @@ import Constants from 'expo-constants';
 /**
  * 🔧 配置说明
  * 
- * Expo Go 开发模式（手机）：
- * 1. 确保手机和电脑在同一网络（WiFi/热点）
- * 2. 在 Windows 上运行 `ipconfig` 查看你的 IP 地址
- * 3. 将 IP 填入下面的 MANUAL_DEV_IP
- * 4. 确保后端使用 app.listen(PORT, '0.0.0.0') 监听所有接口
+ * 开发模式 - 自动适配网络环境：
+ * 1. 手机端：自动从 Expo 获取电脑 IP（推荐）
+ * 2. Web 端：自动使用 localhost
  * 
- * Web 浏览器开发模式（电脑）：
- * - 自动使用 localhost（无需配置）
+ * 如果自动检测失败：
+ * - 设置 USE_MANUAL_IP = true
+ * - 运行 `ipconfig` 查看电脑 IP，填入 MANUAL_DEV_IP
+ * - 确保手机和电脑在同一网络（WiFi/热点）
  * 
  * 生产环境：
  * - 设置 PRODUCTION_API_URL 为你的服务器地址
  */
 
-// 手动指定开发 IP（用于 Expo Go 手机端）
+// 是否使用手动指定的 IP（调试时使用）
+const USE_MANUAL_IP = true;
+
+// 手动指定开发 IP（仅当 USE_MANUAL_IP = true 时生效）
 const MANUAL_DEV_IP = '172.20.10.2';
 
 // 生产环境 API URL
@@ -33,6 +36,7 @@ const BACKEND_PORT = 3000;
 const getApiBaseUrl = () => {
   // 生产环境
   if (PRODUCTION_API_URL) {
+    console.log('🚀 使用生产环境 API');
     return PRODUCTION_API_URL;
   }
 
@@ -43,36 +47,56 @@ const getApiBaseUrl = () => {
                        window.location.hostname === '127.0.0.1';
     
     if (isLocalhost) {
-      console.log('🌐 检测到 Web 环境，使用 localhost');
+      console.log('🌐 [Web] 使用 localhost');
       return `http://localhost:${BACKEND_PORT}/api`;
     }
     
     // 如果 Web 部署在服务器上，使用当前域名
+    console.log('🌐 [Web] 使用当前域名:', window.location.hostname);
     return `http://${window.location.hostname}:${BACKEND_PORT}/api`;
   }
 
-  // 移动设备：手动指定的开发 IP（最稳定的方式）
-  if (MANUAL_DEV_IP) {
-    console.log('📱 检测到移动环境，使用手动指定 IP');
+  // 移动设备（Expo Go）
+  
+  // 方式1：使用手动指定的 IP（用于调试或自动检测失败时）
+  if (USE_MANUAL_IP && MANUAL_DEV_IP) {
+    console.log('📱 [手动] 使用指定 IP:', MANUAL_DEV_IP);
     return `http://${MANUAL_DEV_IP}:${BACKEND_PORT}/api`;
   }
 
-  // 自动检测 Expo 开发服务器 IP
+  // 方式2：自动从 Expo 获取开发服务器 IP（推荐）
+  // Expo Go 启动时会连接到电脑上的 Metro bundler
+  // 我们可以从这个连接信息中提取电脑的 IP 地址
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
-  if (hostUri && !hostUri.includes('.exp.direct')) {
+  
+  if (hostUri) {
+    // hostUri 格式: "192.168.1.100:8081" 或 "192.168.1.100:19000"
     const host = hostUri.split(':')[0];
-    console.log('📱 使用 Expo 自动检测 IP');
-    return `http://${host}:${BACKEND_PORT}/api`;
+    
+    // 排除 Expo 隧道地址（.exp.direct）
+    if (!hostUri.includes('.exp.direct')) {
+      console.log('📱 [自动] 使用 Expo 检测到的电脑 IP:', host);
+      console.log('   Expo 连接地址:', hostUri);
+      return `http://${host}:${BACKEND_PORT}/api`;
+    }
   }
 
-  // Android 模拟器回退
+  // 方式3：模拟器回退方案
   if (Platform.OS === 'android') {
-    console.log('🤖 检测到 Android 模拟器');
+    // Android 模拟器使用特殊 IP 访问宿主机
+    console.log('🤖 [Android模拟器] 使用 10.0.2.2');
     return `http://10.0.2.2:${BACKEND_PORT}/api`;
   }
 
-  // iOS 模拟器回退
-  console.log('🍎 检测到 iOS 模拟器');
+  if (Platform.OS === 'ios') {
+    // iOS 模拟器可以直接使用 localhost
+    console.log('🍎 [iOS模拟器] 使用 localhost');
+    return `http://localhost:${BACKEND_PORT}/api`;
+  }
+
+  // 最后回退：假设使用 localhost（不太可能到这里）
+  console.warn('⚠️ 无法自动检测 IP，使用 localhost（可能无法连接）');
+  console.warn('💡 请设置 USE_MANUAL_IP = true 并配置 MANUAL_DEV_IP');
   return `http://localhost:${BACKEND_PORT}/api`;
 };
 
@@ -104,8 +128,24 @@ async function request(endpoint, options = {}) {
     return data;
   } catch (error) {
     // 网络连接失败
-    if (error.message === 'Network request failed') {
-      throw new Error('无法连接到服务器\n请检查：手机和电脑是否在同一网络');
+    if (error.message === 'Network request failed' || error.message.includes('Failed to fetch')) {
+      const errorMsg = [
+        '❌ 无法连接到后端服务器',
+        '',
+        '请检查：',
+        '1. 后端服务器是否已启动（npm start）',
+        '2. 手机和电脑是否在同一 WiFi/热点',
+        '3. 电脑防火墙是否允许端口 3000',
+        '',
+        `正在尝试连接: ${API_BASE_URL}`,
+        '',
+        '💡 如果自动检测失败：',
+        '- 打开 frontend-js/services/api.js',
+        '- 设置 USE_MANUAL_IP = true',
+        '- 运行 ipconfig 查看电脑 IP',
+        '- 填入 MANUAL_DEV_IP'
+      ].join('\n');
+      throw new Error(errorMsg);
     }
     throw error;
   }

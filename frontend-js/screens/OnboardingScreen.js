@@ -9,9 +9,9 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import FallingEmojis from '../components/FallingEmojis';
-import LoginModal from '../components/LoginModal';
-import RegisterModal from '../components/RegisterModal';
+import FallingEmojis from '../components/onboarding/FallingEmojis';
+import LoginModal from '../components/onboarding/LoginModal';
+import RegisterModal from '../components/onboarding/RegisterModal';
 
 export default function OnboardingScreen({ navigation, onLoginSuccess }) {
   const fadeAnim = React.useRef(new Animated.Value(0)).current;

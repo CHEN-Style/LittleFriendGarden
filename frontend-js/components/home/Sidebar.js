@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import Constants from 'expo-constants';
 
 export default function Sidebar({ visible, onClose, onNavigate, userData }) {
@@ -54,7 +54,7 @@ export default function Sidebar({ visible, onClose, onNavigate, userData }) {
               </View>
               <View style={styles.headerText}>
                 <Text style={[styles.appName, isDarkMode && styles.appNameDark]}>PetCare</Text>
-                <Text style={[styles.appSlogan, isDarkMode && styles.appSloganDark]}>Your pet's companion</Text>
+                <Text style={[styles.appSlogan, isDarkMode && styles.appSloganDark]}>您的宠物伴侣</Text>
               </View>
             </View>
           </View>
@@ -130,7 +130,7 @@ export default function Sidebar({ visible, onClose, onNavigate, userData }) {
                   {userData?.username || '用户'}
                 </Text>
                 <Text style={[styles.userType, isDarkMode && styles.userTypeDark]} numberOfLines={1}>
-                  Premium Member
+                  高级会员
                 </Text>
               </View>
             </TouchableOpacity>

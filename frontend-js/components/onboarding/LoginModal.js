@@ -10,94 +10,128 @@ import {
   Platform,
   ScrollView,
   Animated,
+  PanResponder,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as authService from '../services/authService';
-import * as storage from '../utils/storage';
+import * as authService from '../../services/authService';
+import * as storage from '../../utils/storage';
 
-export default function RegisterModal({ visible, onClose, onSwitchToLogin, onRegisterSuccess }) {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+export default function LoginModal({ visible, onClose, onSwitchToRegister, onLoginSuccess }) {
+  const [emailOrUsername, setEmailOrUsername] = useState('123@qq.com'); // 测试默认值
+  const [password, setPassword] = useState('12345678'); // 测试默认值
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const backdropOpacity = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(0)).current;
+  const dragY = React.useRef(new Animated.Value(0)).current;
+
+  // 手势处理器
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // 只在向下滑动时响应
+        return gestureState.dy > 5;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // 只允许向下拖动
+        if (gestureState.dy > 0) {
+          dragY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        // 如果下滑超过 100 像素，关闭模态框
+        if (gestureState.dy > 100) {
+          handleClose();
+        } else {
+          // 否则弹回原位
+          Animated.spring(dragY, {
+            toValue: 0,
+            tension: 65,
+            friction: 11,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   React.useEffect(() => {
     if (visible) {
-      // 淡入
-      Animated.timing(fadeAnim, {
+      // 确保从正确的初始位置开始
+      dragY.setValue(0);
+      slideAnim.setValue(0);
+      backdropOpacity.setValue(0);
+      
+      // 蒙版淡入
+      Animated.timing(backdropOpacity, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
       }).start();
-    } else {
-      // 重置
-      fadeAnim.setValue(0);
+      // 表单从下向上滑入
+      Animated.spring(slideAnim, {
+        toValue: 1,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }).start();
     }
+    // 注意：不在这里重置动画值，让关闭动画自然完成
   }, [visible]);
 
   const handleClose = () => {
-    // 淡出
-    Animated.timing(fadeAnim, {
+    // 表单向下滑出 + dragY 同时向下滑动
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.spring(dragY, {
+        toValue: 600, // 同时让dragY也向下滑
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    // 蒙版淡出
+    Animated.timing(backdropOpacity, {
       toValue: 0,
-      duration: 200,
+      duration: 250,
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) {
+        // 关闭动画完成后，重置所有动画值到初始状态
+        dragY.setValue(0);
+        slideAnim.setValue(0);
+        backdropOpacity.setValue(0);
+        // 通知父组件关闭
         onClose();
       }
     });
   };
 
-  const handleRegister = async () => {
+  const handleLogin = async () => {
     // 清除之前的错误
     setError('');
 
-    // 验证：至少填写用户名或邮箱
-    if (!username.trim() && !email.trim()) {
-      setError('请至少填写用户名或邮箱');
+    if (!emailOrUsername.trim() || !password.trim()) {
+      setError('请填写所有字段');
       Platform.OS === 'web' 
-        ? alert('错误: 请至少填写用户名或邮箱') 
-        : Alert.alert('错误', '请至少填写用户名或邮箱');
-      return;
-    }
-
-    if (!password.trim()) {
-      setError('请输入密码');
-      Platform.OS === 'web' 
-        ? alert('错误: 请输入密码') 
-        : Alert.alert('错误', '请输入密码');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('两次密码输入不一致');
-      Platform.OS === 'web' 
-        ? alert('错误: 两次密码输入不一致') 
-        : Alert.alert('错误', '两次密码输入不一致');
-      return;
-    }
-
-    if (password.length < 8) {
-      setError('密码长度至少为 8 位');
-      Platform.OS === 'web' 
-        ? alert('错误: 密码长度至少为 8 位') 
-        : Alert.alert('错误', '密码长度至少为 8 位');
+        ? alert('错误: 请填写所有字段') 
+        : Alert.alert('错误', '请填写所有字段');
       return;
     }
 
     setLoading(true);
 
     try {
-      // 调用注册 API
-      const result = await authService.register({
-        username: username.trim() || undefined,
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
+      // 调用登录 API
+      const result = await authService.login({
+        identifier: emailOrUsername.trim(),
         password,
       });
 
@@ -105,15 +139,12 @@ export default function RegisterModal({ visible, onClose, onSwitchToLogin, onReg
       await storage.saveAuthData(result);
 
       // 清空表单
-      setUsername('');
-      setEmail('');
-      setPhone('');
+      setEmailOrUsername('');
       setPassword('');
-      setConfirmPassword('');
 
-      // 通知父组件注册成功
-      if (onRegisterSuccess) {
-        onRegisterSuccess(result);
+      // 通知父组件登录成功
+      if (onLoginSuccess) {
+        onLoginSuccess(result);
       }
 
       // 关闭模态框
@@ -121,17 +152,17 @@ export default function RegisterModal({ visible, onClose, onSwitchToLogin, onReg
 
       // 显示成功提示（不阻塞流程）
       setTimeout(() => {
-        Platform.OS === 'web' ? alert('注册成功！') : Alert.alert('成功', '注册成功！');
+        Platform.OS === 'web' ? alert('登录成功！') : Alert.alert('成功', '登录成功！');
       }, 300);
     } catch (error) {
-      console.error('注册失败:', error);
-      const errorMessage = error.message || '注册失败，请稍后重试';
+      console.error('登录失败:', error);
+      const errorMessage = error.message || '登录失败，请检查用户名和密码';
       setError(errorMessage);
       
       // 显示错误提示
       Platform.OS === 'web' 
-        ? alert('注册失败: ' + errorMessage) 
-        : Alert.alert('注册失败', errorMessage);
+        ? alert('登录失败: ' + errorMessage) 
+        : Alert.alert('登录失败', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -153,7 +184,7 @@ export default function RegisterModal({ visible, onClose, onSwitchToLogin, onReg
           style={[
             styles.backdrop,
             {
-              opacity: fadeAnim,
+              opacity: backdropOpacity,
             },
           ]}
         >
@@ -164,32 +195,38 @@ export default function RegisterModal({ visible, onClose, onSwitchToLogin, onReg
           />
         </Animated.View>
         
-        {/* 模态框内容 - 居中显示 */}
         <Animated.View
+          {...panResponder.panHandlers}
           style={[
             styles.modalContainer,
             {
-              opacity: fadeAnim,
               transform: [
                 {
-                  scale: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.9, 1],
-                  }),
+                  translateY: Animated.add(
+                    slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [600, 0],
+                    }),
+                    dragY
+                  ),
                 },
               ],
             },
           ]}
         >
+          {/* 拖动指示器 */}
+          <View style={styles.dragHandleContainer}>
+            <View style={styles.dragHandle} />
+          </View>
           <ScrollView
             showsVerticalScrollIndicator={false}
-            bounces={true}
+            bounces={false}
             contentContainerStyle={styles.scrollContent}
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>注册</Text>
-              <Text style={styles.subtitle}>创建你的账号</Text>
+              <Text style={styles.title}>登录</Text>
+              <Text style={styles.subtitle}>欢迎回来！</Text>
               {/* 关闭按钮 */}
               <TouchableOpacity 
                 style={styles.closeButton}
@@ -202,58 +239,26 @@ export default function RegisterModal({ visible, onClose, onSwitchToLogin, onReg
 
             {/* Form */}
             <View style={styles.form}>
-              {/* Username Input */}
+              {/* Email/Username Input */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>
-                  用户名 <Text style={styles.required}>*</Text>
-                </Text>
+                <Text style={styles.label}>邮箱或用户名</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="输入用户名"
+                  placeholder="输入邮箱或用户名"
                   placeholderTextColor="#9CA3AF"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                />
-              </View>
-
-              {/* Email Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>
-                  邮箱 <Text style={styles.required}>*</Text>
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="输入邮箱地址"
-                  placeholderTextColor="#9CA3AF"
-                  value={email}
-                  onChangeText={setEmail}
+                  value={emailOrUsername}
+                  onChangeText={setEmailOrUsername}
                   autoCapitalize="none"
                   keyboardType="email-address"
                 />
               </View>
 
-              {/* Phone Input (Optional) */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>手机号（可选）</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="输入手机号"
-                  placeholderTextColor="#9CA3AF"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                />
-              </View>
-
               {/* Password Input */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>
-                  密码 <Text style={styles.required}>*</Text>
-                </Text>
+                <Text style={styles.label}>密码</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="至少 6 位密码"
+                  placeholder="输入密码"
                   placeholderTextColor="#9CA3AF"
                   value={password}
                   onChangeText={setPassword}
@@ -264,43 +269,22 @@ export default function RegisterModal({ visible, onClose, onSwitchToLogin, onReg
                 />
               </View>
 
-              {/* Confirm Password Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>
-                  确认密码 <Text style={styles.required}>*</Text>
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="再次输入密码"
-                  placeholderTextColor="#9CA3AF"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoComplete="off"
-                  textContentType="none"
-                  passwordRules=""
-                />
-              </View>
+              {/* Forgot Password */}
+              <TouchableOpacity style={styles.forgotPassword}>
+                <Text style={styles.forgotPasswordText}>忘记密码？</Text>
+              </TouchableOpacity>
 
-              {/* Register Button */}
+              {/* Login Button */}
               <TouchableOpacity
-                style={[styles.registerButton, loading && styles.buttonDisabled]}
-                onPress={handleRegister}
+                style={[styles.loginButton, loading && styles.buttonDisabled]}
+                onPress={handleLogin}
                 disabled={loading}
                 activeOpacity={0.8}
               >
-                <Text style={styles.registerButtonText}>
-                  {loading ? '注册中...' : '注册'}
+                <Text style={styles.loginButtonText}>
+                  {loading ? '登录中...' : '登录'}
                 </Text>
               </TouchableOpacity>
-
-              {/* Terms */}
-              <Text style={styles.terms}>
-                注册即表示您同意我们的
-                <Text style={styles.termsLink}> 服务条款 </Text>
-                和
-                <Text style={styles.termsLink}> 隐私政策</Text>
-              </Text>
 
               {/* Divider */}
               <View style={styles.divider}>
@@ -309,11 +293,11 @@ export default function RegisterModal({ visible, onClose, onSwitchToLogin, onReg
                 <View style={styles.dividerLine} />
               </View>
 
-              {/* Switch to Login */}
+              {/* Switch to Register */}
               <View style={styles.switchContainer}>
-                <Text style={styles.switchText}>已有账号？</Text>
-                <TouchableOpacity onPress={onSwitchToLogin}>
-                  <Text style={styles.switchLink}>立即登录</Text>
+                <Text style={styles.switchText}>还没有账号？</Text>
+                <TouchableOpacity onPress={onSwitchToRegister}>
+                  <Text style={styles.switchLink}>立即注册</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -337,12 +321,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '90%',
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 10,
+  },
+  dragHandleContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#D1D5DB',
+    borderRadius: 2,
   },
   scrollContent: {
     paddingBottom: 32,
@@ -379,16 +373,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
     fontWeight: '500',
     color: '#374151',
     marginBottom: 8,
-  },
-  required: {
-    color: '#EF4444',
   },
   input: {
     backgroundColor: '#F9FAFB',
@@ -400,12 +391,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1F2937',
   },
-  registerButton: {
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: 24,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+    fontWeight: '500',
+  },
+  loginButton: {
     backgroundColor: '#FF6B6B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
     shadowColor: '#FF6B6B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -415,21 +414,10 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  registerButtonText: {
+  loginButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  terms: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 16,
-    lineHeight: 18,
-  },
-  termsLink: {
-    color: '#FF6B6B',
-    fontWeight: '500',
   },
   divider: {
     flexDirection: 'row',
