@@ -9,6 +9,8 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import OnboardingScreen from './screens/OnboardingScreen';
 import HomeScreen from './screens/HomeScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import AddPetScreen from './screens/AddPetScreen';
+import AddTaskScreen from './screens/AddTaskScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,8 +25,9 @@ export default function App() {
 
   const checkAuthStatus = async () => {
     try {
-      const authData = await storage.getAuthData();
-      setIsLoggedIn(!!authData && !!authData.access_token);
+      // 使用封装好的工具判断是否已登录
+      const authenticated = await storage.isAuthenticated();
+      setIsLoggedIn(authenticated);
     } catch (error) {
       console.error('检查认证状态失败:', error);
       setIsLoggedIn(false);
@@ -82,6 +85,22 @@ export default function App() {
               <ProfileScreen {...props} onLogout={handleLogout} />
             )}
           </Stack.Screen>
+          <Stack.Screen 
+            name="AddPet" 
+            component={AddPetScreen}
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="AddTask"
+            component={AddTaskScreen}
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </ThemeProvider>

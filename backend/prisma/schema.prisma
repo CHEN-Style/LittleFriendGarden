@@ -358,6 +358,7 @@ model Reminder {
   description String?
   priority    String    @default("medium") // 'low' | 'medium' | 'high' | 'urgent'
   status      String    @default("pending") // 'pending' | 'done' | 'archived'
+  tags        String[]  @default([])
   scheduledAt DateTime? @map("scheduled_at") @db.Timestamptz(6) // 计划触发时间
   dueAt       DateTime? @map("due_at") @db.Timestamptz(6) // 截止时间
   snoozeUntil DateTime? @map("snooze_until") @db.Timestamptz(6) // 贪睡到

@@ -25,7 +25,7 @@ import Constants from 'expo-constants';
 const USE_MANUAL_IP = true;
 
 // 手动指定开发 IP（仅当 USE_MANUAL_IP = true 时生效）
-const MANUAL_DEV_IP = '172.20.10.2';
+const MANUAL_DEV_IP = '192.168.1.190';
 
 // 生产环境 API URL
 const PRODUCTION_API_URL = null;

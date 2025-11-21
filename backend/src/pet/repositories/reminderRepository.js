@@ -244,7 +244,9 @@ export async function getTodayReminders(userId) {
     return await prisma.reminder.findMany({
       where: {
         userId,
-        status: 'pending',
+        status: {
+          in: ['pending', 'done'],
+        },
         deletedAt: null,
         scheduledAt: { gte: today, lt: tomorrow },
       },
@@ -324,6 +326,49 @@ export async function completeReminder(id) {
     });
   } catch (error) {
     throw new DatabaseError(`Failed to complete reminder: ${error.message}`, { id });
+  }
+}
+
+/**
+ * 查找是否已存在同一重复规则下的下一次实例
+ * 用于防止在同一条提醒上多次点击「完成」时，重复生成同一天的下一条记录
+ * @param {Object} options
+ * @param {string} options.userId - 用户 ID
+ * @param {string|null} options.petId - 宠物 ID（可空）
+ * @param {string} options.title - 标题
+ * @param {Date} options.scheduledAt - 期望的下一次 scheduledAt
+ * @param {string} options.repeatRule - 重复规则 RRULE
+ * @returns {Promise<Object|null>} 已存在的提醒（若有）
+ */
+export async function findExistingRecurringInstance({
+  userId,
+  petId,
+  title,
+  scheduledAt,
+  repeatRule,
+}) {
+  try {
+    return await prisma.reminder.findFirst({
+      where: {
+        userId,
+        petId,
+        title,
+        repeatRule,
+        deletedAt: null,
+        scheduledAt,
+      },
+      select: {
+        id: true,
+      },
+    });
+  } catch (error) {
+    throw new DatabaseError(`Failed to check existing recurring reminder: ${error.message}`, {
+      userId,
+      petId,
+      title,
+      scheduledAt,
+      repeatRule,
+    });
   }
 }
 
